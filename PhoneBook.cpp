@@ -4,22 +4,25 @@
 #include<vector>
 #include<algorithm>
 #include <fstream>
+#include "Cache.h"
+#include "Trie.h"
 using namespace std;
 
 class phonebook
-{
-public:
+{   
     vector<string> name, email, contact;
-    vector<vector<string>>result;
     unordered_map<char, int> mp;  //for Mapping Each lower case AlphaBet plus whitespace to a Number 
-    phonebook()
+    Node *Trie;
+    LRUCache cache;
+public:
+
+    phonebook(int cacheLimit=5):cache(cacheLimit) 
     {
         ifstream name1("names.txt");
         ifstream email1("emails.txt");
         ifstream contact1("contacts.txt");
-
         string a, b, c;
-
+        Trie=new Node();
         while (getline(name1, a))
         {
             name.push_back(a);
@@ -40,50 +43,24 @@ public:
         mp[' '] = 26; //Mapping white space to 26
     }
 
-    struct node
-    {
-        vector<int> index;
-        node *child[27];
-        node()
-        {
-            for (int i = 0; i < 27; i++)
-                child[i] = NULL;
-        }
-    } root;
-
-    void insert(string &s, int ind)
-    {
-        node *curr = &root;
-        int size = s.size();
-        for (int i = 0; i < size; i++)
-        {
-            char ch;
-            ch = s[i];
-            if (isalpha(ch))
-                ch = tolower(ch);
-            int x = mp[ch];
-            if (curr->child[x] == NULL)
-            {
-                curr->child[x] = new node;
-            }
-            curr->child[x]->index.push_back(ind);
-            curr = curr->child[x];
-        }
-    }
-
     void init()
     {
         for (int i = 0; i < 1000; i++)
         {   name[i].pop_back();
             contact[i].pop_back();
             email[i].pop_back();
-            insert(name[i], i);
+            Trie->insert(name[i], i,mp);
         }
     }
 
-    void find(string &s)
-    {
-        node *curr = &root;
+    vector<SearchResult> find(string &s)
+    {   
+        if(cache.isCached(s))
+        {   cout<<"\n\n\nCache Hit!!!\n\n\n\n\n";
+            return cache.get(s);
+        }
+        Node *curr = Trie;
+        vector<SearchResult>result;
         int size = s.size();
         for (int i = 0; i < size; i++)
         {
@@ -100,30 +77,37 @@ public:
         {
             for (auto x : curr->index)
             {
-                result.push_back({name[x], contact[x], email[x]});
+                result.push_back(SearchResult(name[x], contact[x], email[x]));
             }
         }
+        cout<<"\n\n\nCache Miss!!!\n\n\n\n\n";
+        cache.put(s,result);
+        return result;
     }
 
     void print(string s)
     {
-        init();
-        find(s);
-        cout << "There are " << result.size() << " results found related to your entry\n";
+        
+        vector<SearchResult>result=find(s);
+        cout << "There are " << result.size() << " results found related to your entry "<<s<<"\n";
         cout << "\n";
         int cnt=1;
         for (auto &x : result)
         {
-            cout <<"Result: "<<cnt++<<"."<<"\t"<<x[0] << "\t"<< x[1]<< "\t" <<x[2]<< "\n";
+            cout <<"Result: "<<cnt++<<"."<<"\t"<<x;
         }
     }
 };
 
 int main()
-{
+{   phonebook final;
+    final.init();
+    while(true){
     string s;
+    cout<<"\n\n\nEnter Name (! for exit): ";
     getline(cin, s);
+    if(s=="!") return 0;
     transform(s.begin(), s.end(), s.begin(), ::tolower);
-    phonebook final;
     final.print(s);
+  } 
 }
